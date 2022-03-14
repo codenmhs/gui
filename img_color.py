@@ -20,15 +20,20 @@ import numpy as np
 import cv2
 from skimage import io
 
+def get_user_color(): 
+    root = tk.Tk()
+    root.title("Choose Color")
+    root.geometry('300x300')
 
-root = tk.Tk()
-root.title("Choose Color")
-root.geometry('300x300')
+    def change_color():
+        colors = askcolor(title="Choose a Color")
+        # root.configure(bg=colors[1])
+        return colors[1]
 
-def change_color():
-    colors = askcolor(title="Choose a Color")
-    root.configure(bg=colors[1])
+    return tk.Button(root, text="Change background color", command=change_color).pack(expand=True)
 
-tk.Button(root, text="Change background color", command=change_color).pack(expand=True)
+# root.mainloop()
+color = get_user_color()
+print(color)
 
-root.mainloop()
+img = io.imread('https://i.stack.imgur.com/DNM65.png')[:, :, :-1]
