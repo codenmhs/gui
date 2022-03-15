@@ -10,13 +10,14 @@
 # GUI
 import tkinter as tk
 from tkinter.colorchooser import askcolor
+from tkinter import filedialog
 # Plotting
 import matplotlib
 # Necessary to get pyplot and tk to play well.
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
-import numpy as np
 # Image processing
+import numpy as np
 import cv2
 from skimage import io
 # Working with paths, file names, directories
@@ -24,10 +25,24 @@ from pathlib import Path
 import os
 
 class Picture(): 
-    def __init__(self, path): 
-        # call init with 'path' a Path object
-        self.path = path
-        self.cluster()
+    def __init__(self, path=None, stats=None):
+        if stats: 
+            # If there is a string of existing image data, use it to populate the Picture's fields
+            strings = stats.split(' : ')
+            self.path = Path(strings[0])
+            self.palette = np.fromstring(strings[2])
+            self.counts = np.array(strings[3])
+            self.img = io.imread(self.path)[:, :, :-1]
+        else: 
+            # call init with 'path' a Path object
+            self.path = path
+            self.cluster()
+
+    def __repr__(self):
+        return ' : '.join([str(self.path), 
+            np.array2string(self.get_dominant(), max_line_width=None, separator=',').replace('\n', ''), 
+            np.array2string(self.palette, max_line_width=None, separator=',').replace('\n', ''), 
+            np.array2string(self.counts, max_line_width=None, separator=',').replace('\n', '')])
 
     def cluster(self, n_colors=5): 
         '''
@@ -59,10 +74,6 @@ class Picture():
         '''
         dominant = self.get_dominant()
         return np.linalg.norm(dominant - np.float32(other))
-        squared = 0
-        for count, value in tuple(dominant): 
-            squared += (value - other[count]) ** 2
-        return squared ** (1 / 2)
 
     def plot_palette(self):
         indices = np.argsort(self.counts)[::-1]
@@ -76,20 +87,19 @@ class Picture():
         fig, ax = plt.subplots()
         ax.imshow(dom_patch)
         ax.axis('off')
-        ax.set_title('Dominant colors')
+        ax.set_title(str(self.path))
         plt.show()
 
-# for color in dominant_colors: 
-#     print(color)
-
-# for picture in pictures:
-#     picture.plot_palette()
-
 class Collection():
-    def __init__(self, picture_folder='pictures/'): 
+    def __init__(self, choose_dir=False, picture_folder='pictures/'): 
+        if choose_dir:
+            # Stop an empty root window from appearing
+            tk.Tk().withdraw()
+            picture_folder = filedialog.askdirectory()
+            print(picture_folder)
         # This must be a directory in the project directory which contains only image files.
         self.picture_folder = picture_folder
-        self.pictures = [Picture(path) for path in Path(picture_folder).iterdir()]
+        self.pictures = [Picture(path=path) for path in Path(picture_folder).iterdir()]
         self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
     def get_closest(self): 
@@ -104,11 +114,21 @@ class Collection():
         print(min_distance)
         return closest.path
 
+    def export_colors(self, output_file='picture_data.txt'): 
+        with open(output_file, 'w') as file: 
+            for picture in self.pictures: 
+                file.write(picture.__repr__() + '\n')
+
     def plot_palettes():
         pass
 
-collection = Collection()
-# print(collection.dominant_colors)
-os.startfile(collection.get_closest())
-# for picture in collection.pictures: 
-#     print(picture.get_dominant())
+# collection = Collection(False)
+# collection.export_colors()
+# os.startfile(collection.get_closest())
+
+text = []
+with open('picture_data.txt', 'r') as file: 
+    for line in file.read().split('\n'): 
+        text.append(line)
+pic = Picture(stats=text[0])
+print(pic)
