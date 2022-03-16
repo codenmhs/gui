@@ -28,13 +28,10 @@ class Picture():
     def __init__(self, path=None, stats=None):
         if stats: 
             # If there is a string of existing image data, use it to populate the Picture's fields
-            strings = stats.split(':')
+            strings = stats.split(';')
             self.path = Path(strings[0])
-            self.counts = np.fromstring(self.strip(strings[3]), sep=',', dtype=int)
-            print(self.counts.dtype)
-            self.palette = np.array([np.fromstring(self.strip(row), sep=',') 
-                for row in strings[2].split(',\n')])
-            # self.palette = np.array([np.float32(row.replace('[[','[').replace(']]',']')) for row in strings[2].split(',\n')])
+            self.counts = np.fromstring(self.strip_brackets(strings[3]), sep=',', dtype=int)
+            self.palette = np.array([np.fromstring(self.strip_brackets(row), sep=',') for row in strings[2].split(',\n')])
             self.img = io.imread(self.path)[:, :, :-1]
         else: 
             # call init with 'path' a Path object
@@ -42,23 +39,22 @@ class Picture():
             self.cluster()
 
     @staticmethod
-    def strip(string):
+    def strip_brackets(string):
         '''
             Strip square brackets for reading numpy exported strings back into numpy arrays.
         '''
         return string.replace('[[','').replace(']]','').replace('[','').replace(']','')
 
     def __repr__(self):
-        # Stop numpy printing in scientific notation:
-        #  see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
+        # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
         np.set_printoptions(suppress=True)
-        return ' : '.join([
+        return ' ; '.join([
             str(self.path), 
             # The center of the largest color cluster
             np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', ''),
-            # An array of all color centers, each a three number array
+            # An array of all color centers, each a three number array.
             np.array2string(self.palette, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace(' ', ''), 
-            # The counts of the color centers above
+            # The size of the clusters around the centers above, in same order.
             np.array2string(self.counts, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '')]).replace(' ', '')
 
     def cluster(self, n_colors=5): 
@@ -86,7 +82,6 @@ class Picture():
     def get_distance_to(self, other): 
         '''
             Return the Euclidean distance from the image's dominant color to the user input color. 
-
             'other' should be a list-like RGB value, ie (233, 0, 1.2)
         '''
         dominant = self.get_dominant()
@@ -109,14 +104,28 @@ class Picture():
 
 class Collection():
     def __init__(self, choose_dir=False, picture_folder='pictures/'): 
+        # picture_folders must be a directory which contains only image files.
         if choose_dir:
+            root = tk.Tk()
+            root.update()
+
             # Stop an empty root window from appearing
-            tk.Tk().withdraw()
+            # tk.Tk().withdraw()
             picture_folder = filedialog.askdirectory()
-            print(picture_folder)
-        # This must be a directory in the project directory which contains only image files.
-        self.picture_folder = picture_folder
-        self.pictures = [Picture(path=path) for path in Path(picture_folder).iterdir()]
+            root.destroy()
+        self.picture_folder = Path(picture_folder)
+
+        picture_data = self.picture_folder / 'picture_data.txt'
+        if picture_data.is_file():
+            # If a file of image stats already exists, use it to instantiate the Picture objects instead of computing anew.
+            text = []
+            with open('picture_data.txt', 'r') as file: 
+                for line in file.read().split('\n\n'): 
+                    text.append(line)
+            self.pictures = [Picture(stats=data_string) for data_string in text]
+        else: 
+            self.pictures = [Picture(path=path) for path in self.picture_folder.iterdir()]
+            self.export_colors()
         self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
     def get_closest(self): 
@@ -132,22 +141,23 @@ class Collection():
         return closest.path
 
     def export_colors(self, output_file='picture_data.txt'): 
-        with open(output_file, 'w') as file: 
+        with open(self.picture_folder / output_file, 'w') as file: 
             for picture in self.pictures: 
                 file.write(picture.__repr__() + '\n\n')
 
     def plot_palettes():
         pass
 
-# collection = Collection(False)
+collection = Collection(True)
 # collection.export_colors()
+collection.pictures[0].plot_palette()
 # os.startfile(collection.get_closest())
 
-text = []
-with open('picture_data.txt', 'r') as file: 
-    for line in file.read().split('\n\n'): 
-        text.append(line)
-# for item in text[0].split(':'):
-#     print(item)
-pic = Picture(stats=text[0])
-print(pic)
+# text = []
+# with open('picture_data.txt', 'r') as file: 
+#     for line in file.read().split('\n\n'): 
+#         text.append(line)
+# # for item in text[0].split(':'):
+# #     print(item)
+# pic = Picture(stats=text[0])
+# print(pic)
