@@ -108,7 +108,6 @@ class Collection():
         if choose_dir:
             root = tk.Tk()
             root.update()
-
             # Stop an empty root window from appearing
             # tk.Tk().withdraw()
             picture_folder = filedialog.askdirectory()
@@ -116,13 +115,16 @@ class Collection():
         self.picture_folder = Path(picture_folder)
 
         picture_data = self.picture_folder / 'picture_data.txt'
+        self.pictures = []
         if picture_data.is_file():
             # If a file of image stats already exists, use it to instantiate the Picture objects instead of computing anew.
             text = []
-            with open('picture_data.txt', 'r') as file: 
-                for line in file.read().split('\n\n'): 
-                    text.append(line)
-            self.pictures = [Picture(stats=data_string) for data_string in text]
+            with picture_data.open() as file: 
+                for line in file.read().split('\n\n'):
+                    if line: 
+                        # Since the last picture's data has a \n\n after it, we need to check that
+                        # we are not trying to instantiate Picture with the empty string at the end of the split array.
+                        self.pictures.append(Picture(stats=line))
         else: 
             self.pictures = [Picture(path=path) for path in self.picture_folder.iterdir()]
             self.export_colors()
@@ -138,6 +140,7 @@ class Collection():
                 min_distance = value.get_distance_to(color)
                 closest = value
         print(min_distance)
+        os.startfile(closest.path)
         return closest.path
 
     def export_colors(self, output_file='picture_data.txt'): 
@@ -151,13 +154,5 @@ class Collection():
 collection = Collection(True)
 # collection.export_colors()
 collection.pictures[0].plot_palette()
+# Open the image with the closest color
 # os.startfile(collection.get_closest())
-
-# text = []
-# with open('picture_data.txt', 'r') as file: 
-#     for line in file.read().split('\n\n'): 
-#         text.append(line)
-# # for item in text[0].split(':'):
-# #     print(item)
-# pic = Picture(stats=text[0])
-# print(pic)
