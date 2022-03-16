@@ -28,21 +28,38 @@ class Picture():
     def __init__(self, path=None, stats=None):
         if stats: 
             # If there is a string of existing image data, use it to populate the Picture's fields
-            strings = stats.split(' : ')
+            strings = stats.split(':')
             self.path = Path(strings[0])
-            self.palette = np.fromstring(strings[2])
-            self.counts = np.array(strings[3])
+            self.counts = np.fromstring(self.strip(strings[3]), sep=',', dtype=int)
+            print(self.counts.dtype)
+            self.palette = np.array([np.fromstring(self.strip(row), sep=',') 
+                for row in strings[2].split(',\n')])
+            # self.palette = np.array([np.float32(row.replace('[[','[').replace(']]',']')) for row in strings[2].split(',\n')])
             self.img = io.imread(self.path)[:, :, :-1]
         else: 
             # call init with 'path' a Path object
             self.path = path
             self.cluster()
 
+    @staticmethod
+    def strip(string):
+        '''
+            Strip square brackets for reading numpy exported strings back into numpy arrays.
+        '''
+        return string.replace('[[','').replace(']]','').replace('[','').replace(']','')
+
     def __repr__(self):
-        return ' : '.join([str(self.path), 
-            np.array2string(self.get_dominant(), max_line_width=None, separator=',').replace('\n', ''), 
-            np.array2string(self.palette, max_line_width=None, separator=',').replace('\n', ''), 
-            np.array2string(self.counts, max_line_width=None, separator=',').replace('\n', '')])
+        # Stop numpy printing in scientific notation:
+        #  see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
+        np.set_printoptions(suppress=True)
+        return ' : '.join([
+            str(self.path), 
+            # The center of the largest color cluster
+            np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', ''),
+            # An array of all color centers, each a three number array
+            np.array2string(self.palette, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace(' ', ''), 
+            # The counts of the color centers above
+            np.array2string(self.counts, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '')]).replace(' ', '')
 
     def cluster(self, n_colors=5): 
         '''
@@ -117,7 +134,7 @@ class Collection():
     def export_colors(self, output_file='picture_data.txt'): 
         with open(output_file, 'w') as file: 
             for picture in self.pictures: 
-                file.write(picture.__repr__() + '\n')
+                file.write(picture.__repr__() + '\n\n')
 
     def plot_palettes():
         pass
@@ -128,7 +145,9 @@ class Collection():
 
 text = []
 with open('picture_data.txt', 'r') as file: 
-    for line in file.read().split('\n'): 
+    for line in file.read().split('\n\n'): 
         text.append(line)
+# for item in text[0].split(':'):
+#     print(item)
 pic = Picture(stats=text[0])
 print(pic)
