@@ -27,48 +27,46 @@ import os
 class Picture(): 
     def __init__(self, path=None, stats=None):
         if stats: 
-            # If there is a string of existing image data, use it to populate the Picture's fields
-            strings = stats.split(';')
-            self.path = Path(strings[0])
-            self.counts = np.fromstring(self.strip_brackets(strings[3]), sep=',', dtype=int)
-            self.palette = np.array([np.fromstring(self.strip_brackets(row), sep=',') for row in strings[2].split(',\n')])
-            os.startfile(self.path.as_posix())
+            # If there is an .npz of existing image data, use it to populate the Picture's fields
+            stats = np.load(stats)
+            self.path = Path(stats['path'][0])
+            self.palette = stats['palette']
+            self.counts = stats['counts']
+            self.dominant = stats['dominant']
             self.img = io.imread(str(PureWindowsPath(self.path)))[:, :, :-1]
         else: 
             # call init with 'path' a Path object
             self.path = path
             self.cluster()
-
-    @staticmethod
-    def strip_brackets(string):
-        '''
-            Strip square brackets for reading numpy exported strings back into numpy arrays.
-        '''
-        return string.replace('[[','').replace(']]','').replace('[','').replace(']','')
+            self.dominant = self.get_dominant()
 
     def __repr__(self):
         # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
         np.set_printoptions(suppress=True)
         return ' ; '.join([
             # This exports the path string with forward slashes, which avoids errors later with another Path is instantiated with the string.
-            # self.path.as_posix(),
-            str(self.path),
-            'sdl sdlk l',
+            self.path.as_posix(),
             # The center of the largest color cluster
-            np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', ''),
-            # An array of all color centers, each a three number array.
-            np.array2string(self.palette, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace(' ', ''), 
-            # The size of the clusters around the centers above, in same order.
-            np.array2string(self.counts, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', '')])
+            np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', '')])
+
+    def export_stats(self, filename):
+        '''
+            Save a .npz file (an archive of several numpy arrays which is platform agnostic)
+            containing the two essential computed arrays for the picture.
+        '''
+        np.savez(
+            filename, 
+            path=np.array([self.path]).astype(str),
+            counts=self.counts, 
+            palette=self.palette, 
+            dominant=self.dominant)
 
     def cluster(self, n_colors=5): 
         '''
             Perform k-means clustering on the image to determine its dominant colors.
         '''
         self.img = io.imread(self.path)[:, :, :-1]
-
         pixels = np.float32(self.img.reshape(-1,3))
-
         n_colors = n_colors
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
         flags = cv2.KMEANS_RANDOM_CENTERS
@@ -116,27 +114,36 @@ class Collection():
             picture_folder = filedialog.askdirectory()
         self.picture_folder = Path(picture_folder)
 
-        picture_data = self.picture_folder / 'picture_data.txt'
+        self.data_dir = self.picture_folder / 'pic_stats'
+        self.data_dir.mkdir(parents=True, exist_ok=True)
         self.pictures = []
-        if picture_data.is_file():
-            # If a file of image stats already exists, use it to instantiate the Picture objects instead of computing anew.
-            text = []
-            with picture_data.open(encoding='utf-8') as file: 
-                i = 0
-                for line in file.read().split('\n\n'):
-                    i += 1
-                    if line: 
-                        # Since the last picture's data has a \n\n after it, we need to check that
-                        # we are not trying to instantiate Picture with the empty string at the end of the split array.
-                        self.pictures.append(Picture(stats=line))
-        else: 
-            self.pictures = [Picture(path=path) for path in self.picture_folder.iterdir()]
-            for picture in self.pictures: 
-                print(picture.__repr__())
-            self.export_colors()
+
+        # Sets of picture and data files in the main and data directories, respectively.
+        extensions = {'.png', '.jpg'} 
+        # Include only png and jpg files in the main directory.
+        pic_set = {path for path in filter(lambda path: path.is_file() and path.suffix in extensions, self.picture_folder.glob('**/*'))}
+        data_set = {path for path in self.data_dir.glob('**/*.npz')}
+        # Just the filenames of the above sets, with the paths and extensions strip away, for faster searching below.
+        pic_names = {path.with_suffix('').name for path in pic_set}
+        data_names = {path.with_suffix('').name for path in data_set}
+
+        for pic in pic_set: 
+            if pic.with_suffix('').name in data_names: 
+                # If a picture and its data exist, create the Picture object from the data file.
+                self.pictures.append(Picture(stats = (self.data_dir / pic.with_suffix('').name).with_suffix('.npz')))
+            else: 
+                # If there is a picture without data, create the Picture object, compute the data, and save it to a file.
+                self.pictures.append(Picture(path = pic))
+                # np.savez (in Picture.export_stats) will append the .npz extension
+                self.pictures[-1].export_stats((self.data_dir / pic.with_suffix('').name).as_posix())
+
+        for name in data_names.difference(pic_names): 
+            # Delete data files for missing pictures.
+            (self.data_dir / name).with_suffix(".npz").unlink
+
         self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
-    def get_closest(self): 
+    def get_closest(self):
         # Use tkinter color widget to get a color from the user
         color = askcolor()[0]
         min_distance = 1e9
@@ -149,15 +156,12 @@ class Collection():
         os.startfile(closest.path)
         return closest.path
 
-    def export_colors(self, output_file='picture_data.txt'): 
-        with open(self.picture_folder / output_file, 'w') as file: 
-            for picture in self.pictures: 
-                file.write(picture.__repr__() + '\n\n')
-
     def plot_palettes():
         pass
 
 collection = Collection(True)
+for picture in collection.pictures:
+    print(picture)
 # collection.pictures[0].plot_palette()
 # Open the image with the closest color
 # os.startfile(collection.get_closest())
