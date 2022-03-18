@@ -38,7 +38,6 @@ class Picture():
             # call init with 'path' a Path object
             self.path = path
             self.cluster()
-            # self.dominant = self.get_dominant()
 
     def __repr__(self):
         # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
@@ -75,12 +74,6 @@ class Picture():
         # counts gives the size of each cluster. Order is the same as the order of centers in self.palette.
         _, self.counts = np.unique(labels, return_counts=True)
         self.dominant = self.palette[np.argmax(self.counts)]
-    
-    # def get_dominant(self): 
-    #     '''
-    #         Return the center (color) of the largest cluster
-    #     '''
-    #     return self.palette[np.argmax(self.counts)]
 
     def get_distance_to(self, other): 
         '''
@@ -141,7 +134,6 @@ class Collection():
             # Delete data files for missing pictures.
             (self.data_dir / name).with_suffix(".npz").unlink
 
-        # self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
     def get_closest(self):
         # Use tkinter color widget to get a color from the user
@@ -156,16 +148,6 @@ class Collection():
                 closest = picture
         os.startfile(closest.path)
         return closest.path
-
-
-
-        # for key, value in self.dominant_colors.items(): 
-        #     if value.get_distance_to(color) < min_distance: 
-        #         min_distance = value.get_distance_to(color)
-        #         closest = value
-        # print(min_distance)
-        # os.startfile(closest.path)
-        # return closest.path
 
     def plot_palettes():
         pass
