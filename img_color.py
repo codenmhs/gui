@@ -38,7 +38,7 @@ class Picture():
             # call init with 'path' a Path object
             self.path = path
             self.cluster()
-            self.dominant = self.get_dominant()
+            # self.dominant = self.get_dominant()
 
     def __repr__(self):
         # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
@@ -47,12 +47,11 @@ class Picture():
             # This exports the path string with forward slashes, which avoids errors later with another Path is instantiated with the string.
             self.path.as_posix(),
             # The center of the largest color cluster
-            np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', '')])
+            np.array2string(self.dominant, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', '')])
 
     def export_stats(self, filename):
         '''
-            Save a .npz file (an archive of several numpy arrays which is platform agnostic)
-            containing the two essential computed arrays for the picture.
+            Save a .npz file (a platform agnostic archive of several numpy arrays) of computed image stats.
         '''
         np.savez(
             filename, 
@@ -75,20 +74,21 @@ class Picture():
         _, labels, self.palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
         # counts gives the size of each cluster. Order is the same as the order of centers in self.palette.
         _, self.counts = np.unique(labels, return_counts=True)
+        self.dominant = self.palette[np.argmax(self.counts)]
     
-    def get_dominant(self): 
-        '''
-            Return the center (color) of the largest cluster
-        '''
-        return self.palette[np.argmax(self.counts)]
+    # def get_dominant(self): 
+    #     '''
+    #         Return the center (color) of the largest cluster
+    #     '''
+    #     return self.palette[np.argmax(self.counts)]
 
     def get_distance_to(self, other): 
         '''
             Return the Euclidean distance from the image's dominant color to the user input color. 
             'other' should be a list-like RGB value, ie (233, 0, 1.2)
         '''
-        dominant = self.get_dominant()
-        return np.linalg.norm(dominant - np.float32(other))
+        # dominant = self.get_dominant()
+        return np.linalg.norm(self.dominant - np.float32(other))
 
     def plot_palette(self):
         indices = np.argsort(self.counts)[::-1]
@@ -119,7 +119,7 @@ class Collection():
         self.pictures = []
 
         # Sets of picture and data files in the main and data directories, respectively.
-        extensions = {'.png', '.jpg'} 
+        extensions = {'.png', '.jpg', '.PNG', '.JPG'} 
         # Include only png and jpg files in the main directory.
         pic_set = {path for path in filter(lambda path: path.is_file() and path.suffix in extensions, self.picture_folder.glob('**/*'))}
         data_set = {path for path in self.data_dir.glob('**/*.npz')}
@@ -141,20 +141,31 @@ class Collection():
             # Delete data files for missing pictures.
             (self.data_dir / name).with_suffix(".npz").unlink
 
-        self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
+        # self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
     def get_closest(self):
         # Use tkinter color widget to get a color from the user
         color = askcolor()[0]
         min_distance = 1e9
         closest = None
-        for key, value in self.dominant_colors.items(): 
-            if value.get_distance_to(color) < min_distance: 
-                min_distance = value.get_distance_to(color)
-                closest = value
-        print(min_distance)
+
+        for picture in self.pictures:
+            distance = picture.get_distance_to(color)
+            if distance < min_distance:
+                min_distance = distance
+                closest = picture
         os.startfile(closest.path)
         return closest.path
+
+
+
+        # for key, value in self.dominant_colors.items(): 
+        #     if value.get_distance_to(color) < min_distance: 
+        #         min_distance = value.get_distance_to(color)
+        #         closest = value
+        # print(min_distance)
+        # os.startfile(closest.path)
+        # return closest.path
 
     def plot_palettes():
         pass
@@ -164,4 +175,5 @@ for picture in collection.pictures:
     print(picture)
 # collection.pictures[0].plot_palette()
 # Open the image with the closest color
-# os.startfile(collection.get_closest())
+while True: 
+    collection.get_closest()
