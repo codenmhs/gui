@@ -21,7 +21,7 @@ import numpy as np
 import cv2
 from skimage import io
 # Working with paths, file names, directories
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 import os
 
 class Picture(): 
@@ -32,7 +32,8 @@ class Picture():
             self.path = Path(strings[0])
             self.counts = np.fromstring(self.strip_brackets(strings[3]), sep=',', dtype=int)
             self.palette = np.array([np.fromstring(self.strip_brackets(row), sep=',') for row in strings[2].split(',\n')])
-            self.img = io.imread(self.path)[:, :, :-1]
+            os.startfile(self.path.as_posix())
+            self.img = io.imread(str(PureWindowsPath(self.path)))[:, :, :-1]
         else: 
             # call init with 'path' a Path object
             self.path = path
@@ -49,19 +50,23 @@ class Picture():
         # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
         np.set_printoptions(suppress=True)
         return ' ; '.join([
-            str(self.path), 
+            # This exports the path string with forward slashes, which avoids errors later with another Path is instantiated with the string.
+            # self.path.as_posix(),
+            str(self.path),
+            'sdl sdlk l',
             # The center of the largest color cluster
             np.array2string(self.get_dominant(), precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', ''),
             # An array of all color centers, each a three number array.
             np.array2string(self.palette, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace(' ', ''), 
             # The size of the clusters around the centers above, in same order.
-            np.array2string(self.counts, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '')]).replace(' ', '')
+            np.array2string(self.counts, precision=3, floatmode='fixed', max_line_width=None, separator=',').replace('\n', '').replace(' ', '')])
 
     def cluster(self, n_colors=5): 
         '''
             Perform k-means clustering on the image to determine its dominant colors.
         '''
         self.img = io.imread(self.path)[:, :, :-1]
+
         pixels = np.float32(self.img.reshape(-1,3))
 
         n_colors = n_colors
@@ -103,15 +108,12 @@ class Picture():
         plt.show()
 
 class Collection():
-    def __init__(self, choose_dir=False, picture_folder='pictures/'): 
+    def __init__(self, choose_dir=False, picture_folder='gui pictures/'): 
         # picture_folders must be a directory which contains only image files.
         if choose_dir:
-            root = tk.Tk()
-            root.update()
             # Stop an empty root window from appearing
-            # tk.Tk().withdraw()
+            tk.Tk().withdraw()
             picture_folder = filedialog.askdirectory()
-            root.destroy()
         self.picture_folder = Path(picture_folder)
 
         picture_data = self.picture_folder / 'picture_data.txt'
@@ -119,14 +121,18 @@ class Collection():
         if picture_data.is_file():
             # If a file of image stats already exists, use it to instantiate the Picture objects instead of computing anew.
             text = []
-            with picture_data.open() as file: 
+            with picture_data.open(encoding='utf-8') as file: 
+                i = 0
                 for line in file.read().split('\n\n'):
+                    i += 1
                     if line: 
                         # Since the last picture's data has a \n\n after it, we need to check that
                         # we are not trying to instantiate Picture with the empty string at the end of the split array.
                         self.pictures.append(Picture(stats=line))
         else: 
             self.pictures = [Picture(path=path) for path in self.picture_folder.iterdir()]
+            for picture in self.pictures: 
+                print(picture.__repr__())
             self.export_colors()
         self.dominant_colors = {tuple(picture.get_dominant()):picture for picture in self.pictures}
 
@@ -152,7 +158,6 @@ class Collection():
         pass
 
 collection = Collection(True)
-# collection.export_colors()
-collection.pictures[0].plot_palette()
+# collection.pictures[0].plot_palette()
 # Open the image with the closest color
 # os.startfile(collection.get_closest())
