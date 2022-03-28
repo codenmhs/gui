@@ -96,6 +96,10 @@ class Picture():
         return min([np.linalg.norm(color - np.float32(other)) for color in self.palette])
 
     def plot_palette(self, ax):
+        '''
+            Passed a subplot, create with it a stack of the dominant colors
+            with layer
+        '''
         indices = np.argsort(self.counts)[::-1]
         freqs = np.cumsum(np.hstack([[0], self.counts[indices]/float(self.counts.sum())]))
         rows = np.int_(self.img.shape[0]*freqs)
@@ -106,7 +110,7 @@ class Picture():
 
         ax.imshow(dom_patch)
         ax.axis('off')
-        ax.set_title(str(self.path))
+        ax.set_title(str(self.path.name))
 
 class Collection():
     def __init__(self, choose_dir=False, picture_folder='gui pictures/'): 
