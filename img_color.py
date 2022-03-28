@@ -28,22 +28,29 @@ import os
 
 class Picture(): 
     def __init__(self, path=None, stats=None):
-        # If init is called with 'path' a Path object, use it; else, get a Path from the path string in the data file.
-        self.path = path if path else Path(stats['path'][0])
-        # Read the image and convert it from rgba to rgb if necessary.  
-        # The original source used slice [:, :, :-1] to ignore the a channel.
-        self.img = io.imread(str(PureWindowsPath(self.path)))[:, :, :]
-        if self.img.shape[2] == 4: 
-            # If the image is rgba, convert it.
-            self.img = color.rgba2rgb(self.img)
-        if stats: 
-            # If there is an .npz of existing image data, use it to populate the Picture's fields
+        if path and stats: 
+            raise ValueError("Instantiate a Picture with either a stats file or a path, not both.")
+
+        if stats:
+            # If there is an .npz of existing image data, use it to populate the Picture's computed properties.
             stats = np.load(stats)
+            self.path = Path(stats['path'][0])
             self.palette = stats['palette']
             self.counts = stats['counts']
             self.dominant = stats['dominant']
+            self.make_image()
         else: 
+            self.path = path
+            self.make_image()
             self.cluster()
+    
+    def make_image(self): 
+        # The original source used slice [:, :, :-1] to ignore the alpha channel.
+        # I am instead converting rgba to rgb if necessary.  
+        self.img = io.imread(self.path)[:, :, :]
+        if self.img.shape[2] == 4: 
+            # If the image is rgba, convert it.
+            self.img = color.rgba2rgb(self.img)
 
     def __repr__(self):
         # Stop numpy printing in scientific notation, see https://stackoverflow.com/questions/9777783/suppress-scientific-notation-in-numpy-when-creating-array-from-nested-list
@@ -71,7 +78,9 @@ class Picture():
         '''
         pixels = np.float32(self.img.reshape(-1,3))
         self.n_colors = n_colors
+        # Stop when either the given epsilon or the max iterations is reached.
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
+        # How the initial centers are chosen
         flags = cv2.KMEANS_RANDOM_CENTERS
 
         # palette gives the chosen cluster centers
@@ -82,7 +91,7 @@ class Picture():
 
     def get_distance_to(self, other): 
         '''
-            Return the Euclidean distance from the image's closest dominant color to the user input color. 
+            Return the Euclidean distance from the image's color center which is closest to the user input color. 
             'other' should be a list-like RGB value, ie (233, 0, 1.2)
         '''
         return min([np.linalg.norm(color - np.float32(other)) for color in self.palette])
@@ -165,11 +174,11 @@ class Collection():
         
         plt.show()
 
-
-collection = Collection(True)
-for picture in collection.pictures:
-    print(picture)
-collection.plot_palettes()
-while True: 
-    # Open the image with the closest color
-    collection.get_closest()
+if __name__ == '__main__':
+    collection = Collection(True)
+    for picture in collection.pictures:
+        print(picture)
+    collection.plot_palettes()
+    while True: 
+        # Open the image with the closest color
+        collection.get_closest()
