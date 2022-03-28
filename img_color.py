@@ -45,8 +45,7 @@ class Picture():
             self.cluster()
     
     def make_image(self): 
-        # The original source used slice [:, :, :-1] to ignore the alpha channel.
-        # I am instead converting rgba to rgb if necessary.  
+        # Tonechas used slice [:, :, :-1] to ignore the alpha channel. I am instead converting rgba to rgb if necessary.  
         self.img = io.imread(self.path)[:, :, :]
         if self.img.shape[2] == 4: 
             # If the image is rgba, convert it.
