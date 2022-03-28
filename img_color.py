@@ -21,23 +21,28 @@ import math
 import numpy as np
 import cv2
 from skimage import io
+from skimage import color
 # Working with paths, file names, directories
 from pathlib import Path, PureWindowsPath
 import os
 
 class Picture(): 
     def __init__(self, path=None, stats=None):
+        # If init is called with 'path' a Path object, use it; else, get a Path from the path string in the data file.
+        self.path = path if path else Path(stats['path'][0])
+        # Read the image and convert it from rgba to rgb if necessary.  
+        # The original source used slice [:, :, :-1] to ignore the a channel.
+        self.img = io.imread(str(PureWindowsPath(self.path)))[:, :, :]
+        if self.img.shape[2] == 4: 
+            # If the image is rgba, convert it.
+            self.img = color.rgba2rgb(self.img)
         if stats: 
             # If there is an .npz of existing image data, use it to populate the Picture's fields
             stats = np.load(stats)
-            self.path = Path(stats['path'][0])
             self.palette = stats['palette']
             self.counts = stats['counts']
             self.dominant = stats['dominant']
-            self.img = io.imread(str(PureWindowsPath(self.path)))[:, :, :-1]
         else: 
-            # call init with 'path' a Path object
-            self.path = path
             self.cluster()
 
     def __repr__(self):
@@ -64,14 +69,13 @@ class Picture():
         '''
             Perform k-means clustering on the image to determine its dominant colors.
         '''
-        self.img = io.imread(self.path)[:, :, :-1]
         pixels = np.float32(self.img.reshape(-1,3))
-        n_colors = n_colors
+        self.n_colors = n_colors
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
         flags = cv2.KMEANS_RANDOM_CENTERS
 
         # palette gives the chosen cluster centers
-        _, labels, self.palette = cv2.kmeans(pixels, n_colors, None, criteria, 10, flags)
+        _, labels, self.palette = cv2.kmeans(pixels, self.n_colors, None, criteria, 10, flags)
         # counts gives the size of each cluster. Order is the same as the order of centers in self.palette.
         _, self.counts = np.unique(labels, return_counts=True)
         self.dominant = self.palette[np.argmax(self.counts)]
@@ -92,11 +96,9 @@ class Picture():
         for i in range(len(rows) - 1): 
             dom_patch[rows[i]:rows[i+1], :, :] += np.uint8(self.palette[indices[i]])
 
-        # fig, ax = plt.subplots()
         ax.imshow(dom_patch)
         ax.axis('off')
         ax.set_title(str(self.path))
-        # plt.show()
 
 class Collection():
     def __init__(self, choose_dir=False, picture_folder='gui pictures/'): 
@@ -167,9 +169,7 @@ class Collection():
 collection = Collection(True)
 for picture in collection.pictures:
     print(picture)
-# collection.pictures[0].plot_palette()
-# Open the image with the closest color
-
 collection.plot_palettes()
 while True: 
+    # Open the image with the closest color
     collection.get_closest()
