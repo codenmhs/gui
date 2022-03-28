@@ -77,11 +77,11 @@ class Picture():
 
     def get_distance_to(self, other): 
         '''
-            Return the Euclidean distance from the image's dominant color to the user input color. 
+            Return the Euclidean distance from the image's closest dominant color to the user input color. 
             'other' should be a list-like RGB value, ie (233, 0, 1.2)
         '''
         # dominant = self.get_dominant()
-        return np.linalg.norm(self.dominant - np.float32(other))
+        return min([np.linalg.norm(color - np.float32(other)) for color in self.palette])
 
     def plot_palette(self):
         indices = np.argsort(self.counts)[::-1]
@@ -100,7 +100,7 @@ class Picture():
 
 class Collection():
     def __init__(self, choose_dir=False, picture_folder='gui pictures/'): 
-        # picture_folders must be a directory which contains only image files.
+        # picture_folder should be a directory which contains only image files.
         if choose_dir:
             # Stop an empty root window from appearing
             tk.Tk().withdraw()
@@ -116,7 +116,7 @@ class Collection():
         # Include only png and jpg files in the main directory.
         pic_set = {path for path in filter(lambda path: path.is_file() and path.suffix in extensions, self.picture_folder.glob('**/*'))}
         data_set = {path for path in self.data_dir.glob('**/*.npz')}
-        # Just the filenames of the above sets, with the paths and extensions strip away, for faster searching below.
+        # Just the filenames of the above sets, with the paths and extensions stripped away, for faster searching below.
         pic_names = {path.with_suffix('').name for path in pic_set}
         data_names = {path.with_suffix('').name for path in data_set}
 
