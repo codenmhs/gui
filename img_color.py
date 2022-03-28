@@ -16,6 +16,7 @@ import matplotlib
 # Necessary to get pyplot and tk to play well.
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import math
 # Image processing
 import numpy as np
 import cv2
@@ -80,10 +81,9 @@ class Picture():
             Return the Euclidean distance from the image's closest dominant color to the user input color. 
             'other' should be a list-like RGB value, ie (233, 0, 1.2)
         '''
-        # dominant = self.get_dominant()
         return min([np.linalg.norm(color - np.float32(other)) for color in self.palette])
 
-    def plot_palette(self):
+    def plot_palette(self, ax):
         indices = np.argsort(self.counts)[::-1]
         freqs = np.cumsum(np.hstack([[0], self.counts[indices]/float(self.counts.sum())]))
         rows = np.int_(self.img.shape[0]*freqs)
@@ -92,11 +92,11 @@ class Picture():
         for i in range(len(rows) - 1): 
             dom_patch[rows[i]:rows[i+1], :, :] += np.uint8(self.palette[indices[i]])
 
-        fig, ax = plt.subplots()
+        # fig, ax = plt.subplots()
         ax.imshow(dom_patch)
         ax.axis('off')
         ax.set_title(str(self.path))
-        plt.show()
+        # plt.show()
 
 class Collection():
     def __init__(self, choose_dir=False, picture_folder='gui pictures/'): 
@@ -149,13 +149,27 @@ class Collection():
         os.startfile(closest.path)
         return closest.path
 
-    def plot_palettes():
-        pass
+    def plot_palettes(self):
+        plot_count = len(self.pictures)
+        # The smallest square grid with at least plot_count cells
+        grid_size = math.ceil(plot_count ** (1 / 2))
+        # axs is a plot_count by plot_count array of subplots.  
+        fig, axs = plt.subplots(grid_size, grid_size)
+
+        for index, picture in enumerate(self.pictures):
+            row = index // grid_size
+            col = index % grid_size
+            picture.plot_palette(axs[row, col])
+        
+        plt.show()
+
 
 collection = Collection(True)
 for picture in collection.pictures:
     print(picture)
 # collection.pictures[0].plot_palette()
 # Open the image with the closest color
+
+collection.plot_palettes()
 while True: 
     collection.get_closest()
