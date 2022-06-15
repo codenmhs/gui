@@ -7,6 +7,7 @@
 from skimage import data, io, segmentation, color
 from skimage.future import graph
 import numpy as np
+import tkinter as tk
 from tkinter import filedialog
 from pathlib import Path
 
