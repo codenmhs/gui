@@ -30,6 +30,8 @@ class Picture():
     def __init__(self, path=None, stats=None):
         if path and stats: 
             raise ValueError("Instantiate a Picture with either a stats file or a path, not both.")
+        elif not path and not stats:
+            raise ValueError("A Picture must be instantiated with either a path or stats file.  Neither was provided.")
 
         if stats:
             # If there is an .npz of existing image data, use it to populate the Picture's computed properties.
@@ -168,13 +170,17 @@ class Collection():
     def plot_palettes(self):
         plot_count = len(self.pictures)
         # The smallest square grid with at least plot_count cells
-        grid_size = math.ceil(plot_count ** (1 / 2))
-        # axs is a plot_count by plot_count array of subplots.  
-        fig, axs = plt.subplots(grid_size, grid_size)
+        col_count = math.ceil(plot_count ** (1 / 2))
+        row_count = col_count
+        # Remove empty subplot rows
+        while (row_count - 1) * col_count >= plot_count:
+            row_count -= 1
+        # axs is a row_count by col_count array of subplots.  
+        fig, axs = plt.subplots(row_count, col_count)
 
         for index, picture in enumerate(self.pictures):
-            row = index // grid_size
-            col = index % grid_size
+            row = index // col_count
+            col = index % col_count
             picture.plot_palette(axs[row, col])
         
         plt.show()
