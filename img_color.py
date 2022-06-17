@@ -77,13 +77,15 @@ class Picture():
         '''
         pixels = np.float32(self.img.reshape(-1,3))
         self.n_colors = n_colors
-        # Stop when either the given epsilon or the max iterations is reached.
-        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 200, .1)
+        # The first component of the criteria tuple specifies the termination criterion:
+        # "stop when either the given error epsilon or the max iterations is reached."
+        # The second component is the max iteration count; the third is the error epsilon.
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 50, .1)
         # How the initial centers are chosen
         flags = cv2.KMEANS_RANDOM_CENTERS
 
         # palette gives the chosen cluster centers
-        _, labels, self.palette = cv2.kmeans(pixels, self.n_colors, None, criteria, 10, flags)
+        _, labels, self.palette = cv2.kmeans(pixels, self.n_colors, None, criteria, 5, flags)
         # counts gives the size of each cluster. Order is the same as the order of centers in self.palette.
         _, self.counts = np.unique(labels, return_counts=True)
         self.dominant = self.palette[np.argmax(self.counts)]
