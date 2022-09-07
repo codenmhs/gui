@@ -4,3 +4,4 @@
 .pictures/
 test/
 runtime_images/
+*.pyc
